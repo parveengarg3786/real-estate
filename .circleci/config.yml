@@ -1,0 +1,92 @@
+version: 2.1
+orbs:
+  node: circleci/node@3.0.0
+  heroku: circleci/heroku@0.0.10 # Invoke the Heroku orb
+
+jobs:
+  FIREBASE-REACTJS-DEPLOY:
+    docker:
+      - image: circleci/node:12.9.1-browsers
+    steps:
+      - checkout
+      - run:
+          name: Install npm modules
+          command: |
+            cd REACT_CODE_BASE
+            npm ci
+      - run:
+          name: Make build
+          command: |
+            cd REACT_CODE_BASE
+            npm run build:prod
+      - run:
+          name: Firebase REACTJS Deploy
+          command: |
+            cd REACT_CODE_BASE
+            ./node_modules/.bin/firebase deploy --token $REACTJS_FIREBASE_TOKEN
+  FIREBASE-ANGULAR-DEPLOY:
+    docker:
+      - image: circleci/node:12.9.1-browsers
+
+    steps:
+      - checkout
+      - setup_remote_docker
+
+      - run:
+          name: Install npm modules
+          command: |
+            cd ANGULAR_CODE_BASE
+            yarn --frozen-lockfile
+      - run:
+          name: Install angular/cli
+          command: |
+            sudo npm install -g @angular/cli@7.3.1
+            ng --version
+      - run:
+          name: Make build
+          command: |
+            cd ANGULAR_CODE_BASE
+            ng build --prod --outputHashing=all
+      - run:
+          name: Firebase ANGULAR Deploy
+          command: |
+            cd ANGULAR_CODE_BASE
+            ls -a
+            ./node_modules/.bin/firebase deploy --token $ANGULAR_FIREBASE_TOKEN
+  HEROKU-NODEJS-DEPLOY:
+    docker:
+      - image: "circleci/node:12.9.1-browsers"
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run:
+          name: Deploy to heroku
+          command: |
+            sudo rm -rf .git
+            cd NODEJS_CODE_BASE
+            ls -a
+            git init
+            git config user.email "shubhamagarwal1694@gmail.com"
+            git config user.name "Shubham Agarwal"
+            # git remote set-url origin https://git.heroku.com/github-realestate.git
+            git remote add origin https://git.heroku.com/$HEROKU_APP_NAME.git
+            # git:remote -a $HEROKU_APP_NAME
+            git add -f .
+            git commit -am "heroku commit"
+            git push -f https://heroku:$HEROKU_API_KEY@git.heroku.com/$HEROKU_APP_NAME.git master
+workflows:
+  version: 2
+  REALESTATE-DEPLOY:
+    jobs:
+      - FIREBASE-REACTJS-DEPLOY:
+          filters:
+            branches:
+              only: release-reactjs
+      - FIREBASE-ANGULAR-DEPLOY:
+          filters:
+            branches:
+              only: release-angular
+      - HEROKU-NODEJS-DEPLOY:
+          filters:
+            branches:
+              only: release-nodejs
